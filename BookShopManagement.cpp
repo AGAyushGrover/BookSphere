@@ -278,9 +278,7 @@ void books::search()
 void books::update()
 {
     cout << "Updating book quantities from received purchases..." << endl;
-    // This function's logic is complex and potentially buggy.
-    // A better approach would be to use a single SQL UPDATE with a JOIN.
-    // However, fixing the existing logic:
+    
     stmt.str("");
     stmt << "SELECT book_id, qty FROM purchases WHERE recieved = 'T' AND inv IS NULL;";
     query = stmt.str();
@@ -291,9 +289,12 @@ void books::update()
     }
 
     res_set = mysql_store_result(conn);
-    MYSQL_RES* temp_res = res_set; // Store result to iterate
+    if (!res_set) {
+        cout << "No new deliveries to update." << endl;
+        return;
+    }
 
-    while ((row = mysql_fetch_row(temp_res)) != NULL)
+    while ((row = mysql_fetch_row(res_set)) != NULL)
     {
         int book_id = stoi(row[0]);
         int quantity = stoi(row[1]);
@@ -306,7 +307,7 @@ void books::update()
             cout << "\nError updating book ID " << book_id << ": " << mysql_error(conn) << endl;
         }
     }
-    mysql_free_result(temp_res);
+    mysql_free_result(res_set);
 
     // Now, mark purchases as inventoried
     stmt.str("");
@@ -345,10 +346,192 @@ void books::display()
     mysql_free_result(res_set);
 }
 
-// ... (Implementations for other classes with similar fixes for input and error handling) ...
-// NOTE: For brevity, I've corrected the `books` class thoroughly as a template.
-// You should apply similar fixes (getline, cin.ignore, error checks) to all other classes.
-// I will also fix the critical logic bug in the employees class below.
+
+// ---------------
+// class suppliers
+// ---------------
+void suppliers::add_sup()
+{
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cout << "Enter Supplier Name: ";
+    getline(cin, name);
+    cout << "Enter Phone No.: ";
+    cin >> phn;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cout << "Enter Address Line 1: ";
+    getline(cin, addr_line1);
+    cout << "Enter Address Line 2: ";
+    getline(cin, addr_line2);
+    cout << "Enter City: ";
+    getline(cin, addr_city);
+    cout << "Enter State: ";
+    getline(cin, addr_state);
+
+    stmt.str("");
+    stmt << "INSERT INTO suppliers(name, phone_no, addr1, addr2, addr_city, addr_stat) VALUES('" << name << "'," << phn << ",'" << addr_line1 << "','" << addr_line2 << "','" << addr_city << "','" << addr_state << "');";
+    query = stmt.str();
+    q = query.c_str();
+    if (mysql_query(conn, q)) {
+        cout << "\nQuery Error: " << mysql_error(conn) << endl;
+    } else {
+        cout << "\nSupplier Record Inserted Successfully!" << endl;
+    }
+}
+
+void suppliers::remove_supplier()
+{
+    cout << "Enter the supplier ID to remove: ";
+    cin >> id;
+    stmt.str("");
+    stmt << "DELETE FROM suppliers WHERE id = " << id << ";";
+    query = stmt.str();
+    q = query.c_str();
+    if (mysql_query(conn, q)) {
+        cout << "\nQuery Error: " << mysql_error(conn) << endl;
+    } else {
+        if (mysql_affected_rows(conn) > 0) {
+            cout << "\nSupplier Removed Successfully." << endl;
+        } else {
+            cout << "\nSupplier ID not found." << endl;
+        }
+    }
+}
+
+void suppliers::search_id()
+{
+    cout << "Enter the supplier ID to find details: ";
+    cin >> id;
+    stmt.str("");
+    stmt << "SELECT * FROM suppliers WHERE id = " << id << ";";
+    query = stmt.str();
+    q = query.c_str();
+    if (mysql_query(conn, q)) {
+        cout << "\nQuery Error: " << mysql_error(conn) << endl;
+        return;
+    }
+
+    res_set = mysql_store_result(conn);
+    if ((row = mysql_fetch_row(res_set)) != NULL)
+    {
+        cout << "\n--- Supplier Details ---" << endl;
+        cout << "Supplier ID: " << row[0] << endl;
+        cout << "Name: " << row[1] << endl;
+        cout << "Phone No.: " << row[2] << endl;
+        cout << "Address Line 1: " << row[3] << endl;
+        cout << "Address Line 2: " << row[4] << endl;
+        cout << "City: " << row[5] << endl;
+        cout << "State: " << row[6] << endl;
+    }
+    else
+    {
+        cout << "\nNo Supplier Found with that ID." << endl;
+    }
+    mysql_free_result(res_set);
+}
+
+// ------------------
+// class Purchases
+// ------------------
+void purchases::new_ord()
+{
+    cout << "Enter the Book ID: ";
+    cin >> book_id;
+    cout << "Enter Supplier ID: ";
+    cin >> sup_id;
+    cout << "Enter the Quantity: ";
+    cin >> qty;
+    cout << "Estimated Delivery (in days): ";
+    cin >> eta;
+
+    stmt.str("");
+    stmt << "INSERT INTO purchases (book_id, sup_id, qty, dt_ord, eta) VALUES (" << book_id << "," << sup_id << "," << qty << ", CURDATE(), DATE_ADD(CURDATE(), INTERVAL " << eta << " DAY));";
+    query = stmt.str();
+    q = query.c_str();
+    if (mysql_query(conn, q)) {
+        cout << "\nQuery Error: " << mysql_error(conn) << endl;
+    } else {
+        cout << "\nNew Order Added Successfully!" << endl;
+    }
+}
+
+void purchases::mark_reciv()
+{
+    cout << "Enter the order ID for order received: ";
+    cin >> ord_id;
+    stmt.str("");
+    stmt << "UPDATE purchases SET recieved = 'T' WHERE ord_id = " << ord_id << ";";
+    query = stmt.str();
+    q = query.c_str();
+    if (mysql_query(conn, q)) {
+        cout << "\nQuery Error: " << mysql_error(conn) << endl;
+    } else {
+        cout << "\nOrder Marked as Received." << endl;
+    }
+}
+
+void purchases::mar_cancel()
+{
+    cout << "Enter the order ID for order cancelled: ";
+    cin >> ord_id;
+    stmt.str("");
+    stmt << "UPDATE purchases SET recieved = 'C' WHERE ord_id = " << ord_id << ";";
+    query = stmt.str();
+    q = query.c_str();
+    if (mysql_query(conn, q)) {
+        cout << "\nQuery Error: " << mysql_error(conn) << endl;
+    } else {
+        cout << "\nOrder Marked as Cancelled." << endl;
+    }
+}
+
+void purchases::view()
+{
+    int c;
+    cout << "\nSelect an Option" << endl;
+    cout << "1. View Pending Orders" << endl;
+    cout << "2. View Cancelled Orders" << endl;
+    cout << "3. View Received Orders" << endl;
+    cout << "Enter Your choice: ";
+    cin >> c;
+
+    if (c == 1) received = 'F';
+    else if (c == 2) received = 'C';
+    else if (c == 3) received = 'T';
+    else {
+        cout << "Invalid choice." << endl;
+        return;
+    }
+
+    stmt.str("");
+    stmt << "SELECT * FROM purchases WHERE recieved = '" << received << "';";
+    query = stmt.str();
+    q = query.c_str();
+    if (mysql_query(conn, q)) {
+        cout << "\nQuery Error: " << mysql_error(conn) << endl;
+        return;
+    }
+
+    res_set = mysql_store_result(conn);
+    if (c == 1) cout << "\n--- Pending Orders ---" << endl;
+    else if (c == 2) cout << "\n--- Cancelled Orders ---" << endl;
+    else if (c == 3) cout << "\n--- Received Orders ---" << endl;
+    
+    int count = 0;
+    while ((row = mysql_fetch_row(res_set)) != NULL)
+    {
+        cout << "\nOrder ID: " << row[0] << endl;
+        cout << "Book ID: " << row[1] << endl;
+        cout << "Supplier ID: " << row[2] << endl;
+        cout << "Quantity: " << row[3] << endl;
+        cout << "Date Ordered: " << row[4] << endl;
+        cout << "Estimated Delivery: " << row[5] << endl;
+        count++;
+    }
+    if (count == 0) {
+        cout << "No orders found for this status." << endl;
+    }
+    mysql_free_result(res_set);
+}
 
 // ----------------
 // class employees
@@ -459,7 +642,85 @@ void employees::assign_mgr_stat()
     }
 }
 
-// Apply similar fixes to search_emp, display, update_sal, and all other classes...
+// ---------------------
+// class members
+// ---------------------
+
+void members::add_mem()
+{
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cout << "Enter Member Name: ";
+    getline(cin, name);
+    cout << "Enter Phone No.: ";
+    cin >> phn;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cout << "Enter Address Line 1: ";
+    getline(cin, addr_line1);
+    cout << "Enter Address Line 2: ";
+    getline(cin, addr_line2);
+    cout << "Enter City: ";
+    getline(cin, addr_city);
+    cout << "Enter State: ";
+    getline(cin, addr_state);
+
+    stmt.str("");
+    stmt << "INSERT INTO members(name, addr1, addr2, addr_city, addr_stat, phone_no, beg_date, end_date) VALUES ('" << name << "','" << addr_line1 << "','" << addr_line2 << "','" << addr_city << "','" << addr_state << "'," << phn << ", CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 YEAR));";
+    query = stmt.str();
+    q = query.c_str();
+    if (mysql_query(conn, q)) {
+        cout << "\nQuery Error: " << mysql_error(conn) << endl;
+        return;
+    }
+    
+    // Fetching the new member id
+    long long new_id = mysql_insert_id(conn);
+    cout << "\nMember Added Successfully!" << endl;
+    cout << "New Member ID is: " << new_id << endl;
+}
+
+
+void members::refresh()
+{
+    query = "UPDATE members SET valid = 'invalid' WHERE end_date < CURDATE() AND valid = 'valid';";
+    q = query.c_str();
+    if (mysql_query(conn, q)) {
+         cout << "\nError refreshing memberships: " << mysql_error(conn) << endl;
+    } else {
+        cout << "\nMembership statuses refreshed successfully. " << mysql_affected_rows(conn) << " memberships updated." << endl;
+    }
+}
+
+void members::search_mem()
+{
+    cout << "Enter member ID to search: ";
+    cin >> id;
+    stmt.str("");
+    stmt << "SELECT * FROM members WHERE id = " << id << ";";
+    query = stmt.str();
+    q = query.c_str();
+    if (mysql_query(conn, q)) {
+        cout << "\nQuery Error: " << mysql_error(conn) << endl;
+        return;
+    }
+
+    res_set = mysql_store_result(conn);
+    if ((row = mysql_fetch_row(res_set)) != NULL)
+    {
+        cout << "\n--- Member Details ---" << endl;
+        cout << "Member ID: " << row[0] << endl;
+        cout << "Name: " << row[1] << endl;
+        cout << "Address: " << row[2] << ", " << row[3] << ", " << row[4] << ", " << row[5] << endl;
+        cout << "Contact No.: " << row[6] << endl;
+        cout << "Membership Begin: " << row[7] << endl;
+        cout << "Membership End: " << row[8] << endl;
+        cout << "Membership Status: " << row[9] << endl;
+    }
+    else
+    {
+        cout << "\nNo Member Found with that ID." << endl;
+    }
+    mysql_free_result(res_set);
+}
 
 // ------------------
 // Class Sales
@@ -522,8 +783,7 @@ void sales::add()
     else
     {
         cout << "Book ID invalid or insufficient quantity in stock!" << endl;
-        mysql_free_result(res_set);
-        return;
+        // mysql_free_result is not needed here as row was NULL
     }
 }
 
@@ -611,11 +871,87 @@ void book_menu()
     }
 }
 
-// Implement other menus (sup_menu, pur_menu, etc.) similarly...
-// For brevity, these are left as stubs.
-void sup_menu() { cout << "Supplier menu not fully implemented in this example." << endl; }
-void pur_menu() { cout << "Purchases menu not fully implemented in this example." << endl; }
-void mem_menu() { cout << "Members menu not fully implemented in this example." << endl; }
+
+void sup_menu() {
+    int c;
+    suppliers s;
+    cout << "*************************************************" << endl;
+    cout << "                SUPPLIER MENU" << endl;
+    cout << "*************************************************" << endl;
+    cout << "   1. ADD NEW SUPPLIER" << endl;
+    cout << "   2. REMOVE SUPPLIER" << endl;
+    cout << "   3. SEARCH FOR SUPPLIER" << endl;
+    cout << "   4. RETURN TO MAIN MENU" << endl << endl;
+    cout << "Enter Your Choice: ";
+    cin >> c;
+     if(cin.fail()){
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        c = 0;
+    }
+    switch(c) {
+        case 1: s.add_sup(); break;
+        case 2: s.remove_supplier(); break;
+        case 3: s.search_id(); break;
+        case 4: return;
+        default: cout << "Invalid Input" << endl; break;
+    }
+}
+
+void pur_menu() {
+    int c;
+    purchases p;
+    cout << "*************************************************" << endl;
+    cout << "                PURCHASES MENU" << endl;
+    cout << "*************************************************" << endl;
+    cout << "   1. New Order" << endl;
+    cout << "   2. View Orders" << endl;
+    cout << "   3. Mark Order as Cancelled" << endl;
+    cout << "   4. Mark Order as Received" << endl;
+    cout << "   5. RETURN TO MAIN MENU" << endl << endl;
+    cout << "Enter Your Choice: ";
+    cin >> c;
+     if(cin.fail()){
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        c = 0;
+    }
+    switch(c) {
+        case 1: p.new_ord(); break;
+        case 2: p.view(); break;
+        case 3: p.mar_cancel(); break;
+        case 4: p.mark_reciv(); break;
+        case 5: return;
+        default: cout << "Invalid Input" << endl; break;
+    }
+}
+
+void mem_menu() {
+    int c;
+    members m;
+    cout << "*************************************************" << endl;
+    cout << "                 MEMBERS MENU" << endl;
+    cout << "*************************************************" << endl;
+    cout << "   1. New Member" << endl;
+    cout << "   2. Search Member" << endl;
+    cout << "   3. Refresh Membership Statuses" << endl;
+    cout << "   4. RETURN TO MAIN MENU" << endl << endl;
+    cout << "Enter Your Choice: ";
+    cin >> c;
+    if(cin.fail()){
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        c = 0;
+    }
+    switch (c) {
+        case 1: m.add_mem(); break;
+        case 2: m.search_mem(); break;
+        case 3: m.refresh(); break;
+        case 4: return;
+        default: cout << "Invalid Input" << endl; break;
+    }
+}
+
 void sal_menu() {
     int c;
     sales s;
@@ -678,8 +1014,12 @@ void pass()
     for(int i = 0; i < 4; i++)
     {
         ch = getch();
-        num = num * 10 + (ch - '0');
-        cout << "*";
+        if (ch >= '0' && ch <= '9') {
+            num = num * 10 + (ch - '0');
+            cout << "*";
+        } else {
+            i--; // don't count non-digit input
+        }
     }
 
     if (num == PASSWORD)
